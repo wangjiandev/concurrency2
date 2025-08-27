@@ -1,48 +1,26 @@
-use anyhow::Result;
-use std::{
-    collections::HashMap,
-    fmt::Display,
-    sync::{Arc, RwLock},
-};
+use dashmap::DashMap;
+use std::{fmt::Display, sync::Arc};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
-    pub data: Arc<RwLock<HashMap<String, i64>>>,
+    pub data: Arc<DashMap<String, i64>>,
 }
 
 impl Metrics {
     pub fn new() -> Self {
         Self {
-            data: Arc::new(RwLock::new(HashMap::new())),
+            data: Arc::new(DashMap::new()),
         }
     }
 
-    pub fn inc(&self, key: impl Into<String>) -> Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|e| anyhow::anyhow!("Failed to lock metrics: {e:?}"))?;
-        let counter = data.entry(key.into()).or_insert(0);
+    pub fn inc(&self, key: impl Into<String>) {
+        let mut counter = self.data.entry(key.into()).or_insert(0);
         *counter += 1;
-        Ok(())
     }
 
-    pub fn dec(&self, key: impl Into<String>) -> Result<()> {
-        let mut data = self
-            .data
-            .write()
-            .map_err(|e| anyhow::anyhow!("Failed to lock metrics: {e:?}"))?;
-        let counter = data.entry(key.into()).or_insert(0);
+    pub fn dec(&self, key: impl Into<String>) {
+        let mut counter = self.data.entry(key.into()).or_insert(0);
         *counter -= 1;
-        Ok(())
-    }
-
-    pub fn snapshot(&self) -> Result<HashMap<String, i64>> {
-        let data = self
-            .data
-            .read()
-            .map_err(|e| anyhow::anyhow!("Failed to lock metrics: {e:?}"))?;
-        Ok(data.clone())
     }
 }
 
@@ -54,9 +32,8 @@ impl Default for Metrics {
 
 impl Display for Metrics {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let data = self.data.read().map_err(|_| std::fmt::Error {})?;
-        for (key, value) in data.iter() {
-            writeln!(f, "{key}: {value}")?;
+        for entry in self.data.iter() {
+            writeln!(f, "{}: {}", entry.key(), entry.value())?;
         }
         Ok(())
     }
