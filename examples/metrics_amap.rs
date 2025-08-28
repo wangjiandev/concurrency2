@@ -1,14 +1,21 @@
 use std::{thread, time::Duration};
 
 use anyhow::Result;
-use concurrency2::metrics::Metrics;
+use concurrency2::metrics::amap::AmapMetrics;
 use rand::Rng;
 
 const N: usize = 2;
 const M: usize = 3;
 
 fn main() -> Result<()> {
-    let metrics = Metrics::new();
+    let metrics = AmapMetrics::new(&[
+        "call.thread.worker.0",
+        "call.thread.worker.1",
+        "request.page.1",
+        "request.page.2",
+        "request.page.3",
+        "request.page.4",
+    ]);
     println!("{metrics}");
 
     for idx in 0..N {
@@ -25,24 +32,24 @@ fn main() -> Result<()> {
     }
 }
 
-fn task_worker(idx: usize, metrics: Metrics) -> Result<()> {
+fn task_worker(idx: usize, metrics: AmapMetrics) -> Result<()> {
     thread::spawn(move || {
         loop {
             let mut rng = rand::rng();
             thread::sleep(Duration::from_secs(rng.random_range(1..3)));
-            metrics.inc(format!("call.thread.worker.{idx}"));
+            metrics.inc(format!("call.thread.worker.{idx}")).unwrap();
         }
     });
     Ok(())
 }
 
-fn request_worker(metrics: Metrics) -> Result<()> {
+fn request_worker(metrics: AmapMetrics) -> Result<()> {
     thread::spawn(move || {
         loop {
             let mut rng = rand::rng();
             thread::sleep(Duration::from_secs(rng.random_range(1..3)));
             let page = rng.random_range(1..5);
-            metrics.inc(format!("request.page.{page}"));
+            metrics.inc(format!("request.page.{page}")).unwrap();
         }
     });
     Ok(())
